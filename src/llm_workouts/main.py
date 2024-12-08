@@ -8,7 +8,7 @@ from typing import Deque, List, Optional, Tuple
 from pydantic import BaseModel
 import ollama
 
-import workout
+import llm_workouts.workout as workout
 
 class UserLog(BaseModel):
     user_id : int 
@@ -19,13 +19,17 @@ def generate_json(prompt : str, *, model : str = "tinyllama") -> str:
     workout_json = workout.base_workout.model_dump_json()
 
     final_prompt = f" Given the following base workout as a JSON file: \
-    {workout_json} and the following prompt : {prompt} \
-    provide a workout as close as possible to the base workout, in the same template and that takes into account \
-    the constraints of the prompt."
+    {workout_json} and the following comments : {prompt} \
+    modify the base workout taking the comments into account. return a valid JON"
 
-
-    response = ollama.generate(model = model, prompt = final_prompt, stream = False, 
-                    format = workout.Workout.model_json_schema())
+    # if stream is set to False, we can't constraint the output to follow the JSON format
+    response = ollama.generate(
+        prompt=final_prompt,
+        model = model,
+        format = workout.Workout.model_json_schema(),
+        options={'temperature' : 0}
+        )
+    
     return response
 
 def write_log(user_id : int, log : str) -> bool:
@@ -39,9 +43,12 @@ def write_log(user_id : int, log : str) -> bool:
     except Exception as e:
         return False    
     
-## 
+##
 
 if __name__ == "__main__":
-    prompt = input()
-    response = generate_json(prompt)
-    print(response["response"])
+    prompt = "return exactly the base workout provided, with the exercises, same reps and same sets"
+    result = generate_json(
+        prompt=prompt, model = "llama3"
+    )
+
+    print(result["response"])
